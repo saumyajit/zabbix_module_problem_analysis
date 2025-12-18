@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (headerRow && !headerRow.querySelector('.lts-header')) {
                     const ltsHeader = document.createElement('th');
                     ltsHeader.className = 'lts-header';
-                    ltsHeader.textContent = 'MonZGuru';
+                    ltsHeader.textContent = 'Analysis';
                     headerRow.appendChild(ltsHeader);
                 }
 
