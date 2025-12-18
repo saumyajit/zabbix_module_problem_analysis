@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    class AnalistProblem {
+    class AnalystProblem {
         constructor() {
             this.CSRF_TOKEN_NAME = '_csrf_token';
             this.form = this.findFormWithCsrfToken();
@@ -22,13 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         init() {
-            // Adiciona o botão inicialmente
+            // Initially adds the button
             this.addLTSButton();
             
-            // Observer para mudanças no DOM
+            // Observer for changes in the DOM
             const observer = new MutationObserver((mutations) => {
                 mutations.forEach((mutation) => {
-                    // Verifica se há mudanças relevantes para o botão LTS
+                    // Checks if there are changes relevant to the LTS button
                     if (mutation.target.classList && 
                         (mutation.target.classList.contains('flickerfreescreen') ||
                          mutation.target.classList.contains('list-table') ||
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
-            // Observer específico para widgets da dashboard
+            // Specific observer for dashboard widgets
             const dashboardObserver = new MutationObserver((mutations) => {
                 let shouldUpdate = false;
                 mutations.forEach((mutation) => {
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Observar especificamente o dashboard se existir
+            // Observe the dashboard container if it exists
             const dashboardContainer = document.querySelector('.dashboard-grid, .dashboard-container');
             if (dashboardContainer) {
                 dashboardObserver.observe(dashboardContainer, {
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Observa o corpo do documento para mudanças
+            // Observe the document body for changes
             observer.observe(document.body, {
                 childList: true,
                 subtree: true,
@@ -80,27 +80,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 attributeFilter: ['class', 'style']
             });
 
-            // Adiciona listener para o evento específico do Zabbix de atualização da tela
+            // Add listener for Zabbix screen update event
             document.addEventListener('zbx_reload', () => {
                 this.addLTSButton();
             });
 
-            // Executa periodicamente para capturar mudanças dinâmicas
+            // Run periodically to capture dynamic changes
             setInterval(() => {
                 this.addLTSButton();
             }, 2000);
 
-            // Executa periodicamente para capturar widgets da dashboard carregados dinamicamente
+            // Run periodically to capture dynamically loaded dashboard widgets
             setInterval(() => {
                 this.addLTSButtonToDashboardWidgets();
             }, 3000);
         }
 
         addLTSButton() {
-            // Adiciona botões na lista principal de problemas
+            // Add buttons in the main problem list
             this.addLTSButtonToMainTable();
             
-            // Adiciona botões nos widgets da dashboard
+            // Add buttons to dashboard widgets
             this.addLTSButtonToDashboardWidgets();
         }
 
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tbody = table.querySelector('tbody');
                 if (!tbody) return;
 
-                // Verificar se já adicionamos o cabeçalho da coluna LTS
+                // Check if we have already added the LTS column header
                 const headerRow = table.querySelector('thead tr');
                 if (headerRow && !headerRow.querySelector('.lts-header')) {
                     const ltsHeader = document.createElement('th');
@@ -124,11 +124,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const rows = tbody.querySelectorAll('tr:not(.timeline-axis):not(.timeline-td)');
                 rows.forEach(row => {
-                    // Verifica se a linha não é uma linha de tempo e se já tem botão LTS
+                    // Check if the row is not a timeline row and if it already has an LTS button
                     if (row.querySelector('.js-lts-button') || 
                         !row.querySelector('.problem-expand-td')) return;
 
-                    // Extrai dados usando data-menu-popup (mais confiável)
+                    // Extract data using data-menu-popup (more reliable)
                     const problemData = this.extractProblemDataFromMenuPopup(row);
                     
                     if (problemData && problemData.eventid) {
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         addLTSButtonToDashboardWidgets() {
-            // Buscar apenas widgets específicos com ambas as classes
+            // Look for specific widgets with both classes
             const specificWidget = document.querySelector('.dashboard-grid-widget-contents.dashboard-widget-problems');
 
             const problemWidgets = new Set();
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tbody = problemTable.querySelector('tbody');
                 if (!tbody) return;
 
-                // Verificar se já adicionamos o cabeçalho da coluna LTS
+                // Check if we have already added the LTS column header
                 const headerRow = problemTable.querySelector('thead tr');
                 if (headerRow && !headerRow.querySelector('.lts-header')) {
                     const ltsHeader = document.createElement('th');
@@ -166,10 +166,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const rows = tbody.querySelectorAll('tr:not(.timeline-axis):not(.timeline-td)');
                 rows.forEach(row => {
-                    // Verifica se já existe um botão LTS nesta linha
+                    // Check if there's already an LTS button in this row
                     if (row.querySelector('.js-lts-button-widget')) return;
 
-                    // Extrai dados usando data-menu-popup
+                    // Extract data using data-menu-popup
                     const problemData = this.extractProblemDataFromMenuPopup(row);
                     
                     if (problemData && problemData.eventid) {
@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let problemName = '';
 
             try {
-                // Extrai eventid de links ou atributos
+                // Extract eventid from links or attributes
                 const eventLink = row.querySelector('a[href*="eventid"]');
                 if (eventLink) {
                     const match = eventLink.href.match(/eventid=(\d+)/);
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Extrai hostid e triggerid usando data-menu-popup (método mais confiável)
+                // Extract hostid and triggerid using data-menu-popup (more reliable method)
                 const hostElement = row.querySelector('[data-menu-popup*="hostid"]');
                 const triggerElement = row.querySelector('[data-menu-popup*="triggerid"]');
 
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             hostname = hostElement.textContent.trim();
                         }
                     } catch (e) {
-                        console.warn('Erro ao parsear hostid:', e);
+                        console.warn('Error parsing hostid:', e);
                     }
                 }
 
@@ -220,11 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             problemName = triggerElement.textContent.trim();
                         }
                     } catch (e) {
-                        console.warn('Erro ao parsear triggerid:', e);
+                        console.warn('Error parsing triggerid:', e);
                     }
                 }
 
-                // Se não conseguiu extrair pelos data-menu-popup, tenta métodos alternativos
+                // If not able to extract using data-menu-popup, try fallback methods
                 if (!hostid || !triggerid) {
                     const fallbackData = this.extractProblemDataFallback(row);
                     hostid = hostid || fallbackData.hostid;
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let problemName = '';
 
             try {
-                // Tenta extrair eventid de links ou atributos
+                // Try to extract eventid from links or attributes
                 const eventLink = row.querySelector('a[href*="eventid"]');
                 if (eventLink) {
                     const match = eventLink.href.match(/eventid=(\d+)/);
@@ -264,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Múltiplas tentativas para extrair triggerid
+                // Multiple attempts to extract triggerid
                 let triggerLink = row.querySelector('a[href*="triggerids"]');
                 if (triggerLink) {
                     const match = triggerLink.href.match(/triggerids.*?(\d+)/);
@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Tenta também por triggers no singular
+                // Also try singular triggers
                 if (!triggerid) {
                     triggerLink = row.querySelector('a[href*="triggerid"]');
                     if (triggerLink) {
@@ -284,8 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Múltiplas tentativas para extrair hostid e hostname
-                // 1. Procura por links com hostid na URL
+                // Multiple attempts to extract hostid and hostname
+                // 1. Search for links with hostid in the URL
                 let hostLink = row.querySelector('a[href*="hostid"]');
                 if (!hostLink) {
                     hostLink = row.querySelector('a[href*="filter_hostids"]');
@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     hostname = hostLink.textContent.trim();
                 }
                 
-                // 2. Se não encontrou, procura na coluna Host (geralmente 4ª ou 5ª coluna)
+                // 2. If not found, search in the Host column (usually the 4th or 5th column)
                 if (!hostid || !hostname) {
                     const hostCells = row.querySelectorAll('td');
                     for (let i = 3; i <= 5 && i < hostCells.length; i++) {
@@ -319,18 +319,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                // 3. Se ainda não encontrou, tenta por data attributes ou outros padrões
+                // 3. If still not found, try using data attributes or other patterns
                 if (!hostid) {
-                    // Procura por data-hostid no row ou elementos filhos
+                    // Look for data-hostid in the row or child elements
                     const elementWithHostid = row.querySelector('[data-hostid]');
                     if (elementWithHostid) {
                         hostid = elementWithHostid.getAttribute('data-hostid');
                     }
                 }
                 
-                // 4. Se ainda não tem hostname, procura por texto que pode ser hostname
+                // 4. If still no hostname, search for text that might be the hostname
                 if (!hostname && hostid) {
-                    // Procura na célula que contém informações do host
+                    // Search in the cell containing host information
                     const possibleHostCell = row.querySelector('td:nth-child(4), td:nth-child(5)');
                     if (possibleHostCell) {
                         const text = possibleHostCell.textContent.trim();
@@ -340,15 +340,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Extrai nome do problema
+                // Extract problem name
                 const problemCell = row.querySelector('td:nth-child(3), td:nth-child(4)');
                 if (problemCell) {
                     problemName = problemCell.textContent.trim();
                 }
 
-                // Se não conseguiu extrair eventid, tenta de outra forma
+                // If eventid wasn't extracted, try another method
                 if (!eventid) {
-                    // Procura por qualquer link que contenha números que possam ser eventid
+                    // Look for any link that might contain eventid numbers
                     const allLinks = row.querySelectorAll('a[href*="action="]');
                     allLinks.forEach(link => {
                         const href = link.href;
@@ -376,25 +376,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         addLTSColumnToRow(row, problemData, isWidget = false) {
-            // Verifica se já existe a coluna LTS nesta linha
+            // Check if the LTS column already exists in this row
             const existingButton = row.querySelector('.js-lts-button') || row.querySelector('.js-lts-button-widget');
             if (existingButton) return;
 
-            // Cria o botão
+            // Create the button
             const button = document.createElement('button');
             button.className = isWidget ? 'btn-alt js-lts-button-widget' : 'btn-alt js-lts-button';
             button.innerHTML = 'Details';
-            button.title = `Análise LTS: ${problemData.hostname} - ${problemData.problemName}`;
+            button.title = `LTS Analysis: ${problemData.hostname} - ${problemData.problemName}`;
 
-            // Cria a nova célula da tabela
+            // Create the new table cell
             const td = document.createElement('td');
             td.className = 'lts-column-cell';
             td.appendChild(button);
 
-            // Adiciona a célula no final da linha
+            // Add the cell at the end of the row
             row.appendChild(td);
 
-            // Adiciona evento de click
+            // Add click event
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -403,30 +403,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         addButtonToRow(row, problemData) {
-            // Encontra a última célula da linha para adicionar o botão
+            // Find the last cell in the row to add the button
             const lastCell = row.lastElementChild;
             if (!lastCell) return;
 
-            // Cria o botão
+            // Create the button
             const button = document.createElement('button');
             button.className = 'analist-lts-btn btn-link';
             button.innerHTML = 'LTS';
-            button.title = 'Análise LTS do Problema';
+            button.title = 'LTS Analysis of the Problem';
 
-            // Adiciona evento de click
+            // Add click event
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 this.openLTSModal(problemData);
             });
 
-            // Adiciona o botão à célula
+            // Add the button to the cell
             lastCell.appendChild(button);
         }
 
         openLTSModal(problemData) {
-            
-            
             const params = new URLSearchParams({
                 eventid: problemData.eventid,
                 ...(problemData.triggerid && { triggerid: problemData.triggerid }),
@@ -435,11 +433,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ...(problemData.problemName && { problem_name: problemData.problemName })
             });
 
-            // URL do endpoint do nosso módulo
+            // URL of the endpoint for our module
             const url = params.toString();
-            
 
-            // Abre popup usando a função do Zabbix
+            // Open popup using the Zabbix function
             if (typeof PopUp !== 'undefined') {
                 PopUp('problemanalist.view', url, {
                     dialogue_class: 'modal-popup-large',
@@ -447,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     resizable: true
                 });
             } else {
-                // Fallback para abrir em nova janela
+                // Fallback to open in a new window
                 window.open(url, 'analist-lts', 'width=1200,height=800,scrollbars=yes,resizable=yes');
             }
         }
@@ -462,6 +459,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Inicializa a classe
-    new AnalistProblem();
+    // Initialize the class
+    new AnalystProblem();
 });
