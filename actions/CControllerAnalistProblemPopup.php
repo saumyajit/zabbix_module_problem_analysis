@@ -4,7 +4,7 @@
  * Controller for analist problem popup
  */
 
-namespace Modules\AnalistProblem\Actions;
+namespace Modules\ProblemAnalysis\Actions;
 
 use CController;
 use CControllerResponseData;
