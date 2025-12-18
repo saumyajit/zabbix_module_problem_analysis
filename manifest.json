@@ -1,0 +1,24 @@
+{
+    "manifest_version": 2.0,
+    "id": "analistproblem",
+    "name": "Analist Problem",
+    "version": "2.0",
+    "namespace": "AnalistProblem",
+    "description": "This module was developed by monzphere.com, and is only possible thanks to partners such as capmon.ck, lunio.com.br, ios.com.br",
+    "author": "monzphere.com",
+    "actions": {
+        "problemanalist.view": {
+            "class": "CControllerAnalistProblemPopup",
+            "view": "problemanalist.view",
+            "layout": "layout.widget"
+        },
+        "problemanalist.service.get": {
+            "class": "CControllerAnalistServicePopup",
+            "layout": "layout.json"
+        }
+    },
+    "assets": {
+        "js": ["analist-problem.js"],
+        "css": ["dark-theme.css", "blue-theme.css"]
+    }
+}
