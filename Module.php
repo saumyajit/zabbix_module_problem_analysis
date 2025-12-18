@@ -1,6 +1,6 @@
 <?php declare(strict_types = 1);
 
-namespace Modules\AnalistProblem;
+namespace Modules\ProblemAnalysis;
 
 use Zabbix\Core\CModule;
 
