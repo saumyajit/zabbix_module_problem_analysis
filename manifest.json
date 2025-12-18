@@ -9,7 +9,7 @@
     "actions": {
         "problemanalist.view": {
             "class": "CControllerAnalistProblemPopup",
-            "view": "problemanalysis.view",
+            "view": "alysis.view",
             "layout": "layout.widget"
         },
         "problemanalist.service.get": {
