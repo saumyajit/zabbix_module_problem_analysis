@@ -395,32 +395,37 @@ $tabs->addTab('patterns', _('Time Patterns'), $time_patterns_div);
 $graphs_div = new CDiv();
 
 if ($items && isset($event['clock'])) {
-    // Calculate fixed time period: 1 hour before event to now
-    $event_timestamp = $event['clock'];
-    $from_timestamp = $event_timestamp - 3600; // 1 hour before event
-    $from_time = date('Y-m-d H:i:s', $from_timestamp);
-    $to_time = 'now';
-    
+    // --- Fixed time windows relative to the incident
+    $event_ts    = (int)$event['clock'];
+    $from_1h_ts  = $event_ts - 3600;          // 1 hour before incident
+
+    // UI strings (respect user TZ + 24h settings)
+    $from_1h_ui  = zbx_date2str(DATE_TIME_FORMAT_SECONDS, $from_1h_ts);
+    $event_ui    = zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event_ts);
+
+    // chart.php expects absolute datetime strings (server-side parsing)
+    $from_1h_param = date('Y-m-d H:i:s', $from_1h_ts);
+    $event_param   = date('Y-m-d H:i:s', $event_ts);
+    $to_now_param  = 'now';
+
     // Create charts container
     $charts_container = new CDiv();
     $charts_container->addClass('charts-container');
-    
-    // Add period info with consolidated chart information
-    $items_count = count($items);
-    $period_info = new CDiv(
-        $items_count == 1 
-            ? sprintf(_('Showing data from %s to now (1 hour before incident)'), $from_time)
-            : sprintf(_('Showing data from %s to now (1 hour before incident)'), $from_time, $items_count)
-    );
+
+    // Period info: (1) 1h before → incident, (2) incident → now
+    $period_info = new CDiv(sprintf(
+        '%s: %s → %s | %s: %s → %s',
+        _('1h window'), $from_1h_ui, $event_ui,
+        _('From incident'), $event_ui, _('now')
+    ));
     $period_info->addClass('period-info');
     $charts_container->addItem($period_info);
-    
-    // Create a single consolidated chart with all items
+
+    // Collect unique itemids and names
     $processed_items = [];
-    $unique_itemids = [];
-    $item_names = [];
-    
-    // First pass: collect unique itemids and names
+    $unique_itemids  = [];
+    $item_names      = [];
+
     foreach ($items as $item) {
         if (!isset($processed_items[$item['itemid']])) {
             $processed_items[$item['itemid']] = true;
@@ -428,64 +433,92 @@ if ($items && isset($event['clock'])) {
             $item_names[] = $item['name'];
         }
     }
-    
+
     if (!empty($unique_itemids)) {
-        $chart_div = new CDiv();
-        $chart_div->addClass('chart-item');
-        
-        // Chart title showing all items
-        $title_text = count($item_names) == 1 
-            ? $item_names[0] 
-            : _('Combined metrics') . ' (' . count($item_names) . ' ' . _('items') . ')';
-        $title = new CTag('h5', false, $title_text);
-        $title->addClass('chart-title');
-        $chart_div->addItem($title);
-        
-        // Build consolidated chart URL with all itemids
-        $base_params = [
-            'from' => $from_time,
-            'to' => $to_time,
-            'type' => 0,
-            'resolve_macros' => 1,
-            'width' => 800,
-            'height' => 300,
-            '_' => time()
-        ];
-        
-        // Start with base parameters
-        $chart_url = 'chart.php?' . http_build_query($base_params);
-        
-        // Add all itemids as separate parameters manually to ensure correct format
-        foreach ($unique_itemids as $itemid) {
-            $chart_url .= '&itemids[]=' . urlencode($itemid);
-        }
-        
-        // Show item details if multiple items
+        // Helper: consolidated chart for a time range
+        $build_consolidated_chart = static function (
+            array $itemids,
+            string $from_str,
+            string $to_str,
+            string $title_text,
+            int $width = 800,
+            int $height = 300
+        ) {
+            $chart_div = new CDiv();
+            $chart_div->addClass('chart-item');
+
+            $title = (new CTag('h5', false, $title_text))->addClass('chart-title');
+            $chart_div->addItem($title);
+
+            $base_params = [
+                'from' => $from_str,   // e.g. '2025-09-11 16:38:57'
+                'to'   => $to_str,     // e.g. '2025-09-11 17:38:57' or 'now'
+                'type' => 0,
+                'resolve_macros' => 1,
+                'width' => $width,
+                'height' => $height,
+                'profileIdx' => 1,
+                '_' => time() // cache buster
+            ];
+
+            $chart_url = 'chart.php?' . http_build_query($base_params);
+            foreach ($itemids as $itemid) {
+                $chart_url .= '&itemids[]=' . urlencode($itemid);
+            }
+
+            $img = new CTag('img', true);
+            $img->setAttribute('src', $chart_url);
+            $img->setAttribute('alt', $title_text);
+            $img->setAttribute('title', $title_text);
+            $img->addClass('chart-image');
+
+            $chart_div->addItem($img);
+            return $chart_div;
+        };
+
+        // Show item list if multiple items (bullet list)
         if (count($item_names) > 1) {
             $items_list = new CDiv();
             $items_list->addClass('chart-items-list');
-            $items_list->addItem(_('Items') . ': ' . implode(', ', $item_names));
-            $chart_div->addItem($items_list);
+
+            $ul = new CTag('ul', false);
+            foreach ($item_names as $name) {
+                $ul->addItem(new CTag('li', false, $name));
+            }
+
+            $items_list->addItem(new CTag('strong', false, _('Items') . ':'));
+            $items_list->addItem($ul);
+
+            $charts_container->addItem($items_list);
         }
-        
-        // Chart image
-        $chart_img = new CTag('img', true);
-        $chart_img->setAttribute('src', $chart_url);
-        $chart_img->setAttribute('alt', $title_text);
-        $chart_img->setAttribute('title', _('Consolidated graph with') . ' ' . count($unique_itemids) . ' ' . _('items'));
-        $chart_img->addClass('chart-image');
-        $chart_div->addItem($chart_img);
-        
-        $charts_container->addItem($chart_div);
+
+        // 1) 1h before incident → incident time
+        $title_1h = (count($item_names) === 1)
+            ? $item_names[0] . ' (' . _('1h around incident') . ')'
+            : _('Combined metrics') . ' (' . _('1h around incident') . ', ' . count($unique_itemids) . ' ' . _('items') . ')';
+
+        $charts_container->addItem(
+            $build_consolidated_chart($unique_itemids, $from_1h_param, $event_param, $title_1h, 800, 300)
+        );
+
+        // 2) From incident → now
+        $title_inc_now = (count($item_names) === 1)
+            ? $item_names[0] . ' (' . _('From incident to now') . ')'
+            : _('Combined metrics') . ' (' . _('From incident to now') . ', ' . count($unique_itemids) . ' ' . _('items') . ')';
+
+        $charts_container->addItem(
+            $build_consolidated_chart($unique_itemids, $event_param, $to_now_param, $title_inc_now, 800, 300)
+        );
     }
-    
+
     $graphs_div->addItem($charts_container);
-    
+
 } elseif ($items && !isset($event['clock'])) {
     $graphs_div->addItem(new CDiv(_('Event timestamp not available for chart generation')));
 } else {
     $graphs_div->addItem(new CDiv(_('No graph data available')));
 }
+
 
 $tabs->addTab('graphs', _('Graphs'), $graphs_div);
 
