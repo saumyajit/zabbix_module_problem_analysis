@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    class AnalystProblem {
+    class ProblemAnalysis {
         constructor() {
             this.CSRF_TOKEN_NAME = '_csrf_token';
             this.form = this.findFormWithCsrfToken();
@@ -460,5 +460,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize the class
-    new AnalystProblem();
+    new ProblemAnalysis();
 });
