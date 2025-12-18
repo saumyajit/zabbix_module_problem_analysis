@@ -1,7 +1,7 @@
 {
     "manifest_version": 2.0,
     "id": "analistproblem",
-    "name": "Analist Problem",
+    "name": "Problem Analytics",
     "version": "1.0",
     "namespace": "AnalistProblem",
     "description": "This module will give analytical data for any Problem (Alert) in Zabbix",
