@@ -1,6 +1,6 @@
 <?php declare(strict_types = 0);
 
-namespace Modules\AnalistProblem\Actions;
+namespace Modules\ProblemAnalysis\Actions;
 
 use CController;
 use API;
