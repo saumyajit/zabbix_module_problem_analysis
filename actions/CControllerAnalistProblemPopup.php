@@ -211,71 +211,81 @@ class CControllerAnalistProblemPopup extends CController {
         $impact_assessment_data = $this->calculateImpactAssessmentData($actual_triggerid, $hostid, $event);
 
 
-        // Get monthly comparison data
-        $monthly_comparison = [];
-        if ($actual_triggerid > 0 && isset($event['clock'])) {
-            $event_timestamp = $event['clock'];
-            
-            // Calculate current month and previous month periods
-            $current_month_start = mktime(0, 0, 0, date('n', $event_timestamp), 1, date('Y', $event_timestamp));
-            $current_month_end = mktime(23, 59, 59, date('n', $event_timestamp), date('t', $event_timestamp), date('Y', $event_timestamp));
-            
-            $prev_month_start = mktime(0, 0, 0, date('n', $event_timestamp) - 1, 1, date('Y', $event_timestamp));
-            $prev_month_end = mktime(23, 59, 59, date('n', $event_timestamp) - 1, date('t', $prev_month_start), date('Y', $prev_month_start));
-            
-            // Handle year transition
-            if (date('n', $event_timestamp) == 1) {
-                $prev_month_start = mktime(0, 0, 0, 12, 1, date('Y', $event_timestamp) - 1);
-                $prev_month_end = mktime(23, 59, 59, 12, 31, date('Y', $event_timestamp) - 1);
-            }
-            
-            // Get events for current month
-            $current_month_events = API::Event()->get([
-                'output' => ['eventid', 'clock', 'value', 'severity'],
-                'source' => 0,
-                'object' => 0,
-                'objectids' => $actual_triggerid,
-                'time_from' => $current_month_start,
-                'time_till' => $current_month_end,
-                'value' => 1 // Only problem events
-            ]);
-            
-            // Get events for previous month
-            $prev_month_events = API::Event()->get([
-                'output' => ['eventid', 'clock', 'value', 'severity'],
-                'source' => 0,
-                'object' => 0,
-                'objectids' => $actual_triggerid,
-                'time_from' => $prev_month_start,
-                'time_till' => $prev_month_end,
-                'value' => 1 // Only problem events
-            ]);
-            
-            $monthly_comparison = [
-                'current_month' => [
-                    'name' => date('F Y', $event_timestamp),
-                    'count' => count($current_month_events),
-                    'events' => $current_month_events,
-                    'start' => $current_month_start,
-                    'end' => $current_month_end
-                ],
-                'previous_month' => [
-                    'name' => date('F Y', $prev_month_start),
-                    'count' => count($prev_month_events),
-                    'events' => $prev_month_events,
-                    'start' => $prev_month_start,
-                    'end' => $prev_month_end
-                ]
-            ];
-            
-            // Calculate percentage change
-            if ($monthly_comparison['previous_month']['count'] > 0) {
-                $change = (($monthly_comparison['current_month']['count'] - $monthly_comparison['previous_month']['count']) / $monthly_comparison['previous_month']['count']) * 100;
-                $monthly_comparison['change_percentage'] = round($change, 1);
-            } else {
-                $monthly_comparison['change_percentage'] = $monthly_comparison['current_month']['count'] > 0 ? 100 : 0;
-            }
-        }
+        // Get monthly comparison data (last 6 months)
+		$monthly_comparison = [];
+		
+		if ($actual_triggerid > 0 && isset($event['clock'])) {
+			$event_timestamp = (int) $event['clock'];
+		
+			// Base at the first day of the event's month 00:00:00
+			$base_month_start = strtotime(date('Y-m-01 00:00:00', $event_timestamp));
+		
+			$months = [];
+		
+			// Build last 6 months: 0 = current month, 1..5 = back in time
+			for ($i = 0; $i < 6; $i++) {
+				$start = strtotime("-{$i} month", $base_month_start);
+		
+				// Month end = last day of that month 23:59:59
+				$end = mktime(
+					23, 59, 59,
+					(int) date('n', $start),
+					(int) date('t', $start),
+					(int) date('Y', $start)
+				);
+		
+				// Fetch problem events for this month
+				$events = API::Event()->get([
+					'output'    => ['eventid', 'clock', 'value', 'severity'],
+					'source'    => 0,
+					'object'    => 0,
+					'objectids' => $actual_triggerid,
+					'time_from' => $start,
+					'time_till' => $end,
+					'value'     => 1    // Only problem events
+				]);
+		
+				$months[$i] = [
+					'name'   => date('F Y', $start),
+					'count'  => count($events),
+					'events' => $events,
+					'start'  => $start,
+					'end'    => $end
+				];
+			}
+		
+			// Add month‑over‑month percentage change for each entry where we have a previous month
+			for ($i = 0; $i < 6; $i++) {
+				if (!isset($months[$i + 1])) {
+					$months[$i]['change_percentage'] = null;   // no previous month
+					continue;
+				}
+		
+				$prev = (int) $months[$i + 1]['count'];
+				$cur  = (int) $months[$i]['count'];
+		
+				if ($prev > 0) {
+					$months[$i]['change_percentage'] = round((($cur - $prev) / $prev) * 100, 1);
+				}
+				else {
+					$months[$i]['change_percentage'] = ($cur > 0) ? 100.0 : 0.0;
+				}
+			}
+		
+			$monthly_comparison = [
+				'months'            => $months,
+				// for views that still expect only 2 months
+				'current_month'     => $months[0],
+				'previous_month'    => $months[1] ?? [
+					'name'   => '',
+					'count'  => 0,
+					'events' => [],
+					'start'  => null,
+					'end'    => null
+				],
+				'change_percentage' => $months[0]['change_percentage'] ?? 0
+			];
+		}
 
         // Get system metrics at event time (only for Zabbix Agent hosts)
         $system_metrics = [];
