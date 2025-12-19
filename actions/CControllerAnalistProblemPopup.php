@@ -579,7 +579,8 @@ class CControllerAnalistProblemPopup extends CController {
             'CPU' => ['system.cpu.util', 'system.cpu.utilization'],
             'Memory' => ['vm.memory.util', 'vm.memory.size[available]', 'vm.memory.size[total]'],
             'Load' => ['system.cpu.load[percpu,avg1]', 'system.cpu.load[,avg5]', 'system.cpu.load'],
-            'Disk' => ['vfs.fs.size[/,pused]', 'vfs.fs.used[/]', 'vfs.fs.size[/,used]']
+            'Disk' => ['vfs.fs.size[/,pused]', 'vfs.fs.size[C:,pused]', 'vfs.fs.used[/]', 'vfs.fs.size[/,used]', 'vfs.fs.used[C:]', 'vfs.fs.size[C:,used]', 'vfs.fs.dependent.size[/,pused]'],
+            'Uptime' => ['system.uptime', 'system.hw.uptime[hrSystemUptime.0]']
         ];
         
         // Search for each category using multiple patterns
