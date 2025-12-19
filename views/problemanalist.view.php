@@ -51,42 +51,59 @@ function createEssentialMetricsTable(array $metrics) {
         return $table;
     }
 
-    foreach ($metrics as $metric) {
-        $name       = $metric['name']       ?? '';
-        $last_value = $metric['last_value'] ?? '';
-        $units      = trim((string)($metric['units'] ?? ''));
-
-        if (is_numeric($last_value)) {
-            $num = (float)$last_value;
-
-            if ($num >= 1000000000) {
-                $value_display = number_format($num / 1000000000, 1) . 'G';
-            }
-            elseif ($num >= 1000000) {
-                $value_display = number_format($num / 1000000, 1) . 'M';
-            }
-            elseif ($num >= 1000) {
-                $value_display = number_format($num / 1000, 1) . 'K';
-            }
-            else {
-                $value_display = number_format($num, 2);
-            }
-        }
-        else {
-            $value_display = (string)$last_value;
-        }
-
-        if ($units !== '') {
-            $value_display .= ' '.$units;
-        }
-
-        $row = new CRow([
-            $name,
-            $value_display
-        ]);
-
-        $table->addRow($row);
-    }
+	foreach ($metrics as $metric) {
+		$name       = $metric['name']       ?? '';
+		$last_value = $metric['last_value'] ?? '';
+		$units      = trim((string)($metric['units'] ?? ''));
+		$category   = $metric['category']   ?? '';
+	
+		if (is_numeric($last_value)) {
+			$num = (float)$last_value;
+	
+			if ($category === 'Uptime') {
+				// Format seconds as "Xd HH:MM:SS"
+				$seconds = (int)$num;
+				if ($seconds < 0) {
+					$seconds = 0;
+				}
+	
+				$days    = intdiv($seconds, 86400);
+				$hours   = intdiv($seconds % 86400, 3600);
+				$minutes = intdiv($seconds % 3600, 60);
+				$secs    = $seconds % 60;
+	
+				$prefix = ($days > 0) ? ($days.'d ') : '';
+				$value_display = $prefix.sprintf('%02d:%02d:%02d', $hours, $minutes, $secs);
+			}
+			elseif ($num >= 1000000000) {
+				$value_display = number_format($num / 1000000000, 1) . 'G';
+			}
+			elseif ($num >= 1000000) {
+				$value_display = number_format($num / 1000000, 1) . 'M';
+			}
+			elseif ($num >= 1000) {
+				$value_display = number_format($num / 1000, 1) . 'K';
+			}
+			else {
+				$value_display = number_format($num, 2);
+			}
+		}
+		else {
+			$value_display = (string)$last_value;
+		}
+	
+		// Append units for everything except uptime (already human‑formatted)
+		if ($units !== '' && $category !== 'Uptime') {
+			$value_display .= ' '.$units;
+		}
+	
+		$row = new CRow([
+			$name,
+			$value_display
+		]);
+	
+		$table->addRow($row);
+	}
 
     return $table;
 }
