@@ -1,45 +1,47 @@
 <?php declare(strict_types = 0);
 
-
 // Include required files for event functions
 require_once dirname(__FILE__).'/../../../include/events.inc.php';
 require_once dirname(__FILE__).'/../../../include/actions.inc.php';
 require_once dirname(__FILE__).'/../../../include/users.inc.php';
+
 $this->addJsFile('layout.mode.js');
 $this->addJsFile('gtlc.js');
 $this->addJsFile('class.calendar.js');
-
-// CSS for Event Cascade Timeline is now integrated into theme files
 
 /**
  * @var CView $this
  */
 
-$event = $data['event'] ?? [];
-$trigger = $data['trigger'] ?? null;
-$host = $data['host'] ?? null;
-$related_events = $data['related_events'] ?? [];
-$items = $data['items'] ?? [];
+$event              = $data['event'] ?? [];
+$trigger            = $data['trigger'] ?? null;
+$host               = $data['host'] ?? null;
+$related_events     = $data['related_events'] ?? [];
+$items              = $data['items'] ?? [];
 $monthly_comparison = $data['monthly_comparison'] ?? [];
-$system_metrics = $data['system_metrics'] ?? [];
+$system_metrics     = $data['system_metrics'] ?? [];
+
+// Normalize arrays to avoid fatals.
+$monthly_comparison = is_array($monthly_comparison) ? $monthly_comparison : [];
+$system_metrics     = is_array($system_metrics) ? $system_metrics : [];
 
 // Format timestamps
 $event_time = isset($event['clock']) ? zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']) : '';
 $event_date = isset($event['clock']) ? zbx_date2str('Y-m-d', $event['clock']) : '';
-$time_ago = isset($event['clock']) ? zbx_date2age($event['clock']) : '';
+$time_ago   = isset($event['clock']) ? zbx_date2age($event['clock']) : '';
 
 // Get severity info
-$severity = isset($event['severity']) ? (int) $event['severity'] : 0;
+$severity      = isset($event['severity']) ? (int) $event['severity'] : 0;
 $severity_name = CSeverityHelper::getName($severity);
 $severity_color = CSeverityHelper::getColor($severity);
 
 /**
  * Create essential metrics table for Zabbix Agent hosts
  */
-function createEssentialMetricsTable($metrics) {
+function createEssentialMetricsTable(array $metrics) {
     $table = new CTableInfo();
     $table->setHeader([_('Metric'), _('Last Value')]);
-    
+
     if (empty($metrics)) {
         $no_data_row = new CRow([
             new CCol(_('No system metrics available'), null, 2)
@@ -48,35 +50,44 @@ function createEssentialMetricsTable($metrics) {
         $table->addRow($no_data_row);
         return $table;
     }
-    
+
     foreach ($metrics as $metric) {
-        $last_value = $metric['last_value'];
-        $units = $metric['units'] ?? '';
-        
-        // Format last value with units
+        $name       = $metric['name']       ?? '';
+        $last_value = $metric['last_value'] ?? '';
+        $units      = trim((string)($metric['units'] ?? ''));
+
         if (is_numeric($last_value)) {
-            // Smart formatting based on value size
-            if ($last_value > 1000000000) {
-                $value_display = number_format($last_value / 1000000000, 1) . 'G ' . $units;
-            } elseif ($last_value > 1000000) {
-                $value_display = number_format($last_value / 1000000, 1) . 'M ' . $units;
-            } elseif ($last_value > 1000) {
-                $value_display = number_format($last_value / 1000, 1) . 'K ' . $units;
-            } else {
-                $value_display = number_format($last_value, 2) . ' ' . $units;
+            $num = (float)$last_value;
+
+            if ($num >= 1000000000) {
+                $value_display = number_format($num / 1000000000, 1) . 'G';
             }
-        } else {
-            $value_display = $last_value . ' ' . $units;
+            elseif ($num >= 1000000) {
+                $value_display = number_format($num / 1000000, 1) . 'M';
+            }
+            elseif ($num >= 1000) {
+                $value_display = number_format($num / 1000, 1) . 'K';
+            }
+            else {
+                $value_display = number_format($num, 2);
+            }
         }
-        
+        else {
+            $value_display = (string)$last_value;
+        }
+
+        if ($units !== '') {
+            $value_display .= ' '.$units;
+        }
+
         $row = new CRow([
-            $metric['name'],
+            $name,
             $value_display
         ]);
-        
+
         $table->addRow($row);
     }
-    
+
     return $table;
 }
 
@@ -90,7 +101,7 @@ $overview_table->setHeader([_('Property'), _('Value')]);
 $overview_table->addRow([_('Event ID'), $event['eventid'] ?? 'N/A']);
 $overview_table->addRow([_('Problem name'), $event['name'] ?? 'Unknown Problem']);
 $overview_table->addRow([_('Host'), $host ? ($host['name'] ?? $host['host'] ?? 'Unknown') : 'N/A']);
-$overview_table->addRow([_('Severity'), 
+$overview_table->addRow([_('Severity'),
     (new CSpan($severity_name))
         ->addClass(CSeverityHelper::getStyle($severity))
         ->addClass('analist-severity-text')
@@ -103,27 +114,31 @@ $overview_table->addRow([_('Status'), ($event['acknowledged'] ?? 0) ? _('Acknowl
 
 if ($trigger) {
     if (isset($trigger['expression'])) {
-        $overview_table->addRow([_('Trigger expression'), 
+        $overview_table->addRow([_('Trigger expression'),
             (new CCol($trigger['expression']))->addClass(ZBX_STYLE_WORDBREAK)
         ]);
     }
-    if (isset($trigger['comments']) && $trigger['comments']) {
-        $overview_table->addRow([_('Comments'), 
+
+    if (!empty($trigger['comments'])) {
+        $overview_table->addRow([_('Comments'),
             (new CCol($trigger['comments']))->addClass(ZBX_STYLE_WORDBREAK)
         ]);
     }
 }
-
 // System metrics section - only for Zabbix Agent hosts
 $metrics_section = null;
-if (!empty($system_metrics) && $system_metrics['available'] && $system_metrics['type'] === 'agent') {
+$metric_categories = $system_metrics['categories'] ?? [];
+
+if (!empty($system_metrics)
+    && !empty($system_metrics['available'])
+    && (($system_metrics['type'] ?? null) === 'agent')
+    && is_array($metric_categories)
+) {
     $metrics_section = new CDiv();
     $metrics_section->addClass('system-metrics-section');
-    
     $metrics_section->addItem(new CTag('h4', false, _('Last value')));
-    
-    // Create simple metrics table
-    $metrics_table = createEssentialMetricsTable($system_metrics['categories']);
+
+    $metrics_table = createEssentialMetricsTable($metric_categories);
     $metrics_section->addItem($metrics_table);
 }
 
@@ -141,168 +156,145 @@ if ($metrics_section) {
     $top_sections_container->addItem($metrics_section);
 }
 
-// Add monthly comparison section to the right side if data is available
-if (!empty($monthly_comparison) && !empty($monthly_comparison['current_month'])) {
-    // Monthly comparison section
+// Monthly comparison
+// Monthly comparison (6 months)
+$months = $monthly_comparison['months'] ?? [];
+if (is_array($months) && !empty($months)) {
     $comparison_section = new CDiv();
     $comparison_section->addClass('monthly-comparison-section');
     $comparison_section->addStyle('flex: 1; min-width: 250px;');
     $comparison_section->addItem(new CTag('h4', false, _('Monthly Comparison')));
-    
-    // Create comparison table
+
     $comparison_table = new CTableInfo();
     $comparison_table->setHeader([_('Period'), _('Incidents'), _('Change')]);
-    
-    $current_month = $monthly_comparison['current_month'];
-    $previous_month = $monthly_comparison['previous_month'];
-    $change_percentage = $monthly_comparison['change_percentage'] ?? 0;
-    
-    // Determine change color and status
-    $change_color = '#666666'; // Neutral
-    $change_status = 'No change';
-    $change_text = '';
 
-    if ($change_percentage > 0) {
-        $change_color = '#e74c3c'; // Red for increase
-        $change_status = 'Increased';
-        $change_text = '+' . $change_percentage . '%';
-    } elseif ($change_percentage < 0) {
-        $change_color = '#27ae60'; // Green for decrease
-        $change_status = 'Decreased';
-        $change_text = $change_percentage . '%';
-    } else {
-        $change_text = '0%';
-    }
+    // Render from oldest to newest for readability
+    for ($i = count($months) - 1; $i >= 0; $i--) {
+        $m   = $months[$i];
+        $chg = $m['change_percentage'] ?? null;
 
-    // Previous month row
-    $comparison_table->addRow([
-        $previous_month['name'],
-        $previous_month['count'],
-        '-'
-    ]);
+        $change_color = '#666666';
+        $change_icon  = '→';
+        $change_text  = ($chg === null) ? '-' : (($chg > 0) ? ('+'.$chg.'%') : ($chg.'%'));
 
-    // Current month row with Zabbix-style status indicator
-    $change_badge = new CSpan($change_text);
-    $change_badge->addStyle("font-weight: bold;");
-
-    if ($change_percentage != 0) {
-        $change_badge->setAttribute('title', $change_status . ' compared to previous month');
-        $change_badge->addClass($change_percentage > 0 ? 'status-red' : 'status-green');
-    }
-
-    $comparison_table->addRow([
-        $current_month['name'],
-        $current_month['count'],
-        $change_badge
-    ]);
-    
-    $comparison_section->addItem($comparison_table);
-    
-    // Add summary message
-    if ($change_percentage != 0) {
-        $trend_message = '';
-        if ($change_percentage > 0) {
-            $trend_message = _('Incidents increased by') . ' ' . abs($change_percentage) . '% ' . _('compared to previous month');
-        } else {
-            $trend_message = _('Incidents decreased by') . ' ' . abs($change_percentage) . '% ' . _('compared to previous month');
+        if ($chg !== null) {
+            if ($chg > 0) {
+                $change_color = '#e74c3c';
+                $change_icon  = '↗';
+            }
+            elseif ($chg < 0) {
+                $change_color = '#27ae60';
+                $change_icon  = '↘';
+            }
         }
-        
+
+        $comparison_table->addRow([
+            $m['name']  ?? '-',
+            $m['count'] ?? 0,
+            ($chg === null)
+                ? '-'
+                : (new CSpan($change_icon.' '.$change_text))
+                    ->addStyle('color: '.$change_color.'; font-weight: bold;')
+        ]);
+    }
+
+    $comparison_section->addItem($comparison_table);
+
+    // Optional summary for latest month vs previous
+    $latest_chg = $monthly_comparison['change_percentage'] ?? 0;
+    if ($latest_chg != 0) {
+        $trend_message = ($latest_chg > 0)
+            ? _('Incidents increased by').' '.abs($latest_chg).'% '._('compared to previous month')
+            : _('Incidents decreased by').' '.abs($latest_chg).'% '._('compared to previous month');
+
         $summary = new CDiv($trend_message);
-        $summary->addStyle("font-style: italic; margin-top: 10px; font-size: 12px;");
+        $summary->addStyle('font-style: italic; margin-top: 10px; font-size: 12px;');
         $comparison_section->addItem($summary);
     }
-    
+
     $top_sections_container->addItem($comparison_section);
 }
 
-// Add the top sections container to overview if it has content
-if ($metrics_section || (!empty($monthly_comparison) && !empty($monthly_comparison['current_month']))) {
+// Add top sections if anything to show
+if ($metrics_section || (is_array($current_month) && is_array($previous_month))) {
     $overview_container->addItem($top_sections_container);
 }
 
 // Add the main overview table below the top sections
 $overview_container->addItem($overview_table);
 
-// TAB 1: Host Information - Primeiro tab
+// TAB 1: Host Information
 $host_div = new CDiv();
 
-// Check if host data is available for debugging
 if (!$host) {
     $host_div->addItem(new CDiv(_('Host information not available')));
 }
+elseif (is_array($host)) {
+    $primary_sections   = [];
+    $info_row_1         = [];
+    $info_row_2         = [];
+    $tags_row           = [];
+    $secondary_sections = [];
 
-if ($host && is_array($host)) {
-    // Reorganized sections for better layout flow
-    $primary_sections = [];      // Full-width sections at top
-    $info_row_1 = [];           // Basic info row: Monitoring + Availability 
-    $info_row_2 = [];           // Extended info row: Host groups + Monitored by
-    $tags_row = [];             // Tags in separate row for better visibility
-    $secondary_sections = [];    // Templates and Inventory in grid
-    
-    // Description first - full width if exists
     if (!empty($host['description'])) {
         $primary_sections[] = makeAnalistHostSectionDescription($host['description']);
     }
-    
-    // Info row 1: Core monitoring information side by side
-    $info_row_1[] = makeAnalistHostSectionMonitoring($host['hostid'], $host['dashboard_count'] ?? 0, 
-        $host['item_count'] ?? 0, $host['graph_count'] ?? 0, $host['web_scenario_count'] ?? 0
+
+    $info_row_1[] = makeAnalistHostSectionMonitoring(
+        $host['hostid'],
+        $host['dashboard_count'] ?? 0,
+        $host['item_count'] ?? 0,
+        $host['graph_count'] ?? 0,
+        $host['web_scenario_count'] ?? 0
     );
+
     $info_row_1[] = makeAnalistHostSectionAvailability($host['interfaces'] ?? []);
-    
-    // Info row 2: Configuration information side by side  
+
     if (!empty($host['hostgroups'])) {
         $info_row_2[] = makeAnalistHostSectionHostGroups($host['hostgroups']);
     }
+
     $info_row_2[] = makeAnalistHostSectionMonitoredBy($host);
-    
-    // Tags in separate row for better readability
+
     if (!empty($host['tags'])) {
         $tags_row[] = makeAnalistHostSectionTags($host['tags']);
     }
-    
-    // Secondary sections: Templates and Inventory in grid layout
+
     if (!empty($host['templates'])) {
         $secondary_sections[] = makeAnalistHostSectionTemplates($host['templates']);
     }
-    
+
     if (!empty($host['inventory'])) {
         $secondary_sections[] = makeAnalistHostSectionInventory($host['hostid'], $host['inventory'], []);
     }
 
-    // Create organized layout containers with improved structure
     $sections_container = new CDiv();
     $sections_container->addClass('analisthost-sections-reorganized');
-    
-    // Add primary sections (full width at top)
+
     foreach ($primary_sections as $section) {
         $sections_container->addItem(
             (new CDiv($section))->addClass('analisthost-row analisthost-row-primary')
         );
     }
-    
-    // Add info row 1: Core monitoring info (side by side)
+
     if (!empty($info_row_1)) {
         $info_container_1 = new CDiv($info_row_1);
         $info_container_1->addClass('analisthost-row analisthost-row-info-primary');
         $sections_container->addItem($info_container_1);
     }
-    
-    // Add info row 2: Configuration info (side by side) 
+
     if (!empty($info_row_2)) {
         $info_container_2 = new CDiv($info_row_2);
         $info_container_2->addClass('analisthost-row analisthost-row-info-secondary');
         $sections_container->addItem($info_container_2);
     }
-    
-    // Add tags row (separate for better visibility)
+
     if (!empty($tags_row)) {
         $tags_container = new CDiv($tags_row);
         $tags_container->addClass('analisthost-row analisthost-row-tags');
         $sections_container->addItem($tags_container);
     }
-    
-    // Add secondary sections in grid layout
+
     if (!empty($secondary_sections)) {
         $secondary_container = new CDiv($secondary_sections);
         $secondary_container->addClass('analisthost-row analisthost-row-secondary-grid');
@@ -313,17 +305,15 @@ if ($host && is_array($host)) {
         makeAnalistHostSectionsHeader($host),
         $sections_container
     ]))->addClass('analisthost-container');
-    
+
     $host_div->addItem($body);
-} else {
+}
+else {
     $host_div->addItem(new CDiv(_('Host information not available')));
 }
 
-$tabs->addTab('host', _('Host Info'), $host_div);
-
-// TAB 2: Overview
-$tabs->addTab('overview', _('Overview'), $overview_container);
-
+$tabs->addTab('host',     _('Host Info'), $host_div);
+$tabs->addTab('overview', _('Overview'),  $overview_container);
 // TAB 3: Time Patterns
 $time_patterns_div = new CDiv();
 
